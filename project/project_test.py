@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import nltk
 import pickle
+import csv
 from nltk.corpus import stopwords
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -19,14 +20,18 @@ from imblearn.under_sampling import RandomUnderSampler
 
 nltk.download('stopwords')
 
-with open('..\\data_train.json') as json_file:
+#opens test dataset or prediction dataset
+with open('data_test_wo_label.json') as json_file:
     ds = pd.read_json(json_file, orient = 'records')
-    test_dataset = ds.iloc[40000:50001, ~ds.columns.isin(['date','text'])]
+    test_dataset = ds.iloc[:, ~ds.columns.isin(['date','text'])]
     training_words = [];
+	
+	#adds words from training set
     with open('words.txt', 'r') as wordList:
         for items in wordList:
             training_words.append(items.strip())
 
+    #strips every word in the training words and adds it into the dataframe for prediction
     for i in training_words:
         i = i.strip()
         if i != ''  and i != 'stars' and i !='useful' and i!= 'cool' and i!= 'funny' and i not in set(stopwords.words('english')):
@@ -35,10 +40,10 @@ with open('..\\data_train.json') as json_file:
     test_dataset['useful1'] = 0
     test_dataset['cool1'] = 0
     test_dataset['funny1'] = 0
-    #with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-    #    print(test_dataset)
-    for nums, i in enumerate(ds['text'].loc[40000:50000]):
-        num = nums+40000
+
+    #Goes through the test/prediction data and fills the dataframe if words appear
+    for nums, i in enumerate(ds['text'].loc[:]):
+        num = nums
         words = i.split()
         words = [re.sub('[^a-zA-Z]', "", c).lower() for c in words]
         for i in words:
@@ -52,18 +57,15 @@ with open('..\\data_train.json') as json_file:
                 test_dataset.at[num, 'cool1'] += 1
             if i == 'funny':
                 test_dataset.at[num, 'funny1'] += 1
-
+    #opens the classifier 
     with open('filename.pickle', 'rb') as handle:
         classifier = pickle.load(handle)
 
-    y_test = test_dataset['stars'].values
-    #print(test_dataset.loc[:, test_dataset.columns!= 'stars'])
     x_test = test_dataset.loc[:,test_dataset.columns != 'stars'].values
-
-
     y_pred = classifier.predict(x_test)
-    #score = classifier.score(y_test, y_pred)
-
-    #print('score is: ', score)
-    print(confusion_matrix(y_test, y_pred))
-    print(classification_report(y_test, y_pred))
+    #writes it to the prediction file
+    with open('predictions.csv', 'w', newline = '') as prediction:
+        writer = csv.writer(prediction)
+        writer.writerow(['prediction'])
+        for i in y_pred:
+            writer.writerow([i])

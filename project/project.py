@@ -21,13 +21,15 @@ from imblearn.under_sampling import RandomUnderSampler
 
 
 nltk.download('stopwords')
-
+#opens the file to trian with
 with open('..\\data_train.json') as json_file:
     ds = pd.read_json(json_file ,orient='records')
-    dataset = ds.iloc[:, ~ds.columns.isin(['date', 'text'])]
+    dataset = ds.iloc[:300000, ~ds.columns.isin(['date', 'text'])]
     unique_name = set()
     names = {}
-    for i in ds['text'].iloc[:]:
+	
+	#parses the most common text to use as training instances
+    for i in ds['text'].iloc[:300000]:
         words = i.split()
         words =[re.sub('[^a-zA-Z]', "", c).lower() for c in words]
         for i in words:
@@ -35,20 +37,21 @@ with open('..\\data_train.json') as json_file:
                 names.update({i:names.get(i) + 1})
             else:
                 names.update({i:1})
-
+ 
     q = sorted(names, key=names.get, reverse = True)[:2000]
     q = [r for r in q if r not in set(stopwords.words('english'))]
-
+    
+    # Adds the most common words to the dataset to train with
     for i in q:
         if i != '' and i != 'stars' and i !='useful' and i!= 'cool' and i!= 'funny' and i not in set(stopwords.words('english')):
             dataset[i] = 0
-
+    # Adds these variables if they ever show up so not to overwrite original stars, useful, cool, and funny
     dataset['stars1'] = 0
     dataset['useful1'] = 0
     dataset['cool1'] = 0
     dataset['funny1'] = 0
-
-    for num, i in enumerate(ds['text'].iloc[:]):
+    #iterates over the train data and adds the words in if they appear
+    for num, i in enumerate(ds['text'].iloc[:300000]):
         words = i.split()
         words = [re.sub('[^a-zA-Z]', "", c).lower() for c in words]
         for i in words:
@@ -63,28 +66,26 @@ with open('..\\data_train.json') as json_file:
             if i == 'funny':
                 dataset.at[num, 'funny1'] += 1
 
+    #undersamples the data so data isn't weighted to 5 as heavily
+	#splits the data into features and labels
     ros = RandomUnderSampler(random_state=0)
     y_train = dataset['stars'].values
     x_train = dataset.loc[:,dataset.columns != 'stars'].values
     print(dataset.loc[:,dataset.columns != 'stars'])
     x_train, y_train = ros.fit_resample(x_train, y_train)
 
-
-    #scaler = StandardScaler()
-    #scaler.fit(x_train)
-    #x_train = scaler.transform(x_train)
-    #x_test = scaler.transform(x_test)
-
+    #Tried these classifiers
     #classifier = KNeighborsClassifier(n_neighbors = 20) #n = 20 38% 500
-    #classifier = LogisticRegression(multi_class='ovr', solver = 'newton-cg') #56% 500 words 56% 2000 words 40000 train
     #classifier = DecisionTreeClassifier(max_depth = 70) #38% with 500 words
     #classifier = Perceptron() # 47% with 500 words
     #classifier = GaussianNB() #52% 1000 words
-    classifier = SVC() #56.8 % accuracy with 1000 waords/55% 500/ 57.2% 1200 / 40000 train 10000 test 2000 words 58.0%
+    #classifier = SVC() #56.8 % accuracy with 1000 waords/55% 500/ 57.2% 1200 / 40000 train 10000 test 2000 words 58.0%
     #classifier = LinearSVC(multi_class='ovr') #56% 500 55% 2000 words
     #classifier = MLPClassifier() #2000 54%
-    classifier.fit(x_train, y_train)
+    classifier = LogisticRegression(multi_class='ovr', solver = 'newton-cg') #56% 500 words 56% 2000 words 40000 train
 
+    classifier.fit(x_train, y_train)
+    #writes the classifier into a pickle file
     with open('filename.pickle', 'wb') as handle:
         pickle.dump(classifier, handle)
     with open('words.txt', 'w') as f:
